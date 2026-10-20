@@ -468,8 +468,11 @@ const papel = () => S.verComo || S.papel;
 const podeValores = () => S.papel !== "estagiario";
 const podeSens = () => ["gestor", "financeiro"].includes(S.papel);
 const isGestor = () => S.papel === "gestor";
-const eu = nome => !!nome && !!S.me && norm(primeiro(nome)) === norm(primeiro(S.me.nome));
-const nomesEquipe = () => uniq([...S.membros.filter(m => m.status === "ativo").map(m => primeiro(m.nome)), ...S.creators.map(c => c.assessor), ...S.negocios.map(n => n.resp), ...S.campanhas.map(c => c.atendimento)].map(x => x && primeiro(x))).sort();
+const palavras = s => String(s || "").trim().split(/\s+/).filter(Boolean);
+const curto = s => { const w = palavras(s); return w.length > 1 && w[1].replace(/\.$/, "").length > 2 ? w[0] + " " + w[1] : (w[0] || "") };
+const mesmo = (a, b) => { const x = palavras(a).map(norm), y = palavras(b).map(norm); if (!x[0] || x[0] !== y[0]) return false; const sx = x[1] && x[1].length > 2 ? x[1] : null, sy = y[1] && y[1].length > 2 ? y[1] : null; return !sx || !sy || sx === sy };
+const eu = nome => !!nome && !!S.me && mesmo(nome, S.me.nome);
+const nomesEquipe = () => uniq([...S.membros.filter(m => m.status === "ativo").map(m => curto(m.nome)), ...S.creators.map(c => c.assessor), ...S.negocios.map(n => n.resp), ...S.campanhas.map(c => c.atendimento)].map(x => x && curto(x))).sort();
 
 const VIEWS = [
   { k: "hoje", l: "Hoje", en: "Today", ic: "sun", g: "Dia a dia", p: "*" },
@@ -665,7 +668,7 @@ ACT.pickSet = b => { const p = b.closest("[data-pick]"), i = $(".pin2", p); i.va
 ACT.multiTog = b => { b.classList.toggle("on"); b.dispatchEvent(new Event("input", { bubbles: true })) };
 ACT.entNovo = async (a, e) => {
   e.preventDefault(); const box = a.closest("[data-ent]"); const kind = box.dataset.ent; const q = $(".entq", box).value.trim().replace(/^@(?=.)/, m => kind === "marca" ? "" : m);
-  const row = kind === "marca" ? { nome: q, resp: S.me?.nome ? primeiro(S.me.nome) : null } : { nome: q, tipo: "nao_exclusivo", status: "ativo", instagram: q.startsWith("@") ? linkIG(q) : null };
+  const row = kind === "marca" ? { nome: q, resp: S.me?.nome ? curto(S.me.nome) : null } : { nome: q, tipo: "nao_exclusivo", status: "ativo", instagram: q.startsWith("@") ? linkIG(q) : null };
   const r = await save(kind === "marca" ? "impd_marcas" : "impd_creators", row);
   $("[type=hidden]", box).value = r.id; $(".enth", box).innerHTML = "✓ cadastrado agora"; toast((kind === "marca" ? "Marca" : "Creator") + " cadastrado ✓");
   document.querySelectorAll("datalist").forEach(d => d.remove()); document.body.insertAdjacentHTML("beforeend", datalists());
@@ -1169,7 +1172,7 @@ ACT.fuOk = async () => {
   await save("impd_negocios", patch, n.id); closeM(m, true); toast("Follow-up registrado ✓"); refreshAll();
 };
 async function ckSet(j, k, ok = true) {
-  const ck = { ...(j.checklist || {}) }; ck[k] = ok ? { ok: true, por: primeiro(S.me.nome), em: hoje() } : { ok: false };
+  const ck = { ...(j.checklist || {}) }; ck[k] = ok ? { ok: true, por: curto(S.me.nome), em: hoje() } : { ok: false };
   const novo = { ...j, checklist: ck }; const patch = { checklist: ck, etapa: etapaJob(novo) };
   await save("impd_jobs", patch, j.id);
 }
@@ -1196,7 +1199,7 @@ async function fecharCampanhaSePronta(cid) {
 }
 ACT.recompra = async b => {
   const m = G("marcas", b.dataset.id); const ult = ultimaCampanha(m.id);
-  const n = await save("impd_negocios", { marca_id: m.id, titulo: "Recompra" + (ult ? " · após " + ult.nome : ""), etapa: "conversa", origem: "Recompra", resp: m.resp || primeiro(S.me.nome), prox_followup: addD(2), ultima_interacao: new Date().toISOString() });
+  const n = await save("impd_negocios", { marca_id: m.id, titulo: "Recompra" + (ult ? " · após " + ult.nome : ""), etapa: "conversa", origem: "Recompra", resp: m.resp || curto(S.me.nome), prox_followup: addD(2), ultima_interacao: new Date().toISOString() });
   await log("negocio", n.id, "Negócio de recompra aberto pelo Assistente", "sistema", m.id); toast("Recompra aberta no funil ✓"); refreshAll(); abrir("negocio", n.id);
 };
 
@@ -1262,7 +1265,7 @@ VR.painel = () => {
    ${porPessoa.map(x => { const mp = metaDe(k, "prospeccao", x.p); return `<tr><td><div class="who"><div class="av s">${ini(x.p)}</div><b>${esc(x.p)}</b></div></td><td class="r num">${x.leads}${mp ? ` <span class="mut xs">/ ${mp}</span>` : ""}</td><td class="r num">${x.fech}</td><td class="r num">${x.carteira}</td></tr>` }).join("") || `<tr><td colspan="4" class="empty">Sem movimento no mês.</td></tr>`}</tbody></table></div></div>`;
   return { main };
 };
-const eu2 = (a, b) => !!a && !!b && norm(primeiro(a)) === norm(primeiro(b));
+const eu2 = (a, b) => !!a && !!b && mesmo(a, b);
 ACT.pMes = b => { const d = +b.dataset.d; if (!d) { S.f.pMes = null; return renderView() } const x = dd((S.f.pMes || mesAtual()) + "-01"); x.setMonth(x.getMonth() + d); S.f.pMes = iso(x).slice(0, 7); renderView() };
 ACT.metas = () => {
   const k = S.f.pMes || mesAtual(); const pessoas = nomesEquipe();
@@ -1315,7 +1318,7 @@ VR.funil = () => {
   cols.push({ k: "posvenda", l: "Pós-venda", cards: pos.map(c => cardC(c, tagSt("concluída " + rel(c.fim), "ok"))) });
   cols.push({ k: "recompra", l: "Recompra", cards: rec.slice(0, 40).map(x => `<div class="bcard sug" data-open="marca:${x.m.id}"><b class="ell">${esc(x.m.nome)}</b><div class="mt">${x.s.camps.length} campanha${x.s.camps.length > 1 ? "s" : ""} · ticket ${brlk(x.s.ticket)}</div><div class="mt">última ${rel(x.s.ult?.fim || x.s.ult?.inicio)}<span class="sp"></span><button class="btn s" data-act="recompra" data-id="${x.m.id}">Abrir</button></div></div>`), n: rec.length });
   const cores = ["#9AA0AE", "#6FD3C7", "#B9A6FF", "#F2C14E", "#FF7A59", "#5FD39A", "#6FD3C7", "#5FD39A", "#FF7A59"];
-  const pessoas = uniq(S.negocios.map(n => n.resp && primeiro(n.resp)));
+  const pessoas = uniq(S.negocios.map(n => n.resp && curto(n.resp)));
   const main = `
   <div class="ph"><div><div class="eyebrow">Comercial</div><h1>Funil de vendas</h1><div class="sub">Prospecção → fechamento → campanha → pós-venda → recompra. Arraste os cartões para mudar de etapa.</div></div><span class="sp"></span>
    <div class="row w"><button class="btn" data-act="leadsColar">${ic("up")} Colar lista de leads</button><button class="btn pr" data-act="novo" data-v="negocio">${ic("plus")} Negócio</button></div></div>
@@ -1359,7 +1362,7 @@ function formNeg(n = {}) {
   return `<div class="frm">${ent("marca_id", "Marca", "marca", n.marca_id, { req: 1, full: 1 })}
    ${fld("titulo", "Assunto", n.titulo, { full: 1, ph: "Ex.: Lançamento linha verão · 3 creators de moda" })}
    ${pick("etapa", "Etapa", n.etapa || "prospeccao", ETAPAS_NEG.filter(e => e[0] !== "fechado").map(e => [e[0], e[1]]), { full: 1 })}
-   ${pick("resp", "Responsável", n.resp || primeiro(S.me.nome), equipeOpts())}
+   ${pick("resp", "Responsável", n.resp || curto(S.me.nome), equipeOpts())}
    ${pick("valor", "Valor estimado (R$)", n.valor, ["2000", "5000", "10000", "20000", "50000"], { num: 1 })}
    ${pick("origem", "Origem", n.origem, ORIGENS)}
    ${pick("canal", "Canal", n.canal, CANAIS)}
@@ -1421,7 +1424,7 @@ ACT.fecharOk = async () => {
 async function jobsDaProposta(p, c) {
   const rows = (p.itens || []).map(it => { const bruto = num(it.valor) ?? (num(it.cache) != null ? Math.round(num(it.cache) / (1 - (p.comissao_pct || 25) / 100)) : null); const pc = p.comissao_pct ?? 25; const ag = bruto != null ? Math.round(bruto * pc) / 100 : null;
     const cr = G("creators", it.creator_id);
-    return { campanha_id: c.id, creator_id: it.creator_id || null, creator_nome: it.nome, escopo: [it.qtd > 1 ? it.qtd + "×" : "", it.formato].filter(Boolean).join(" ") || null, valor_bruto: bruto, comissao_pct: pc, valor_agencia: ag, valor_creator: bruto != null ? bruto - ag : null, agencia_fatura: "Pixie Produções", status: "andamento", etapa: "briefing", data_formalizacao: hoje(), pagamento_regra: p.pagamento || null, premio_pct: 5, premio_quem: c.resp || null, nf_status: "a_emitir", checklist: { formalizado: { ok: true, por: primeiro(S.me.nome), em: hoje() } } } });
+    return { campanha_id: c.id, creator_id: it.creator_id || null, creator_nome: it.nome, escopo: [it.qtd > 1 ? it.qtd + "×" : "", it.formato].filter(Boolean).join(" ") || null, valor_bruto: bruto, comissao_pct: pc, valor_agencia: ag, valor_creator: bruto != null ? bruto - ag : null, agencia_fatura: "Pixie Produções", status: "andamento", etapa: "briefing", data_formalizacao: hoje(), pagamento_regra: p.pagamento || null, premio_pct: 5, premio_quem: c.resp || null, nf_status: "a_emitir", checklist: { formalizado: { ok: true, por: curto(S.me.nome), em: hoje() } } } });
   if (rows.length) await bulkInsert("impd_jobs", rows);
   if (p.status !== "aceita") await save("impd_propostas", { status: "aceita" }, p.id);
 }
@@ -1460,7 +1463,7 @@ ACT.leadsColar = () => colarImport({
   titulo: "Colar lista de leads", ajuda: "Copie as linhas da planilha (Ctrl+C) e cole aqui. Cada linha vira uma marca (se ainda não existir) e um negócio em Prospecção.",
   colunas: ["Marca", "Instagram", "Contato (WhatsApp ou e-mail)", "Segmento", "Responsável"], exemplo: "Casas Bahia\tcasasbahia\t81 9698-6690\tEletrônicos\tRobertta",
   parse: c => { const nome = c[0]; if (!nome) return { st: "erro", resumo: c.join(" · "), msg: "sem nome da marca" }; const ex = S.marcas.find(m => norm(m.nome) === norm(nome)); const aberto = ex && negAberto(ex.id);
-    return { st: aberto ? "dup" : "ok", resumo: nome + (c[3] ? " · " + c[3] : ""), msg: aberto ? "já tem negócio aberto" : ex ? "marca já existe: só cria o negócio" : "", row: { ex, nome, instagram: c[1], contato: c[2], segmento: c[3], resp: c[4] || primeiro(S.me.nome) } } },
+    return { st: aberto ? "dup" : "ok", resumo: nome + (c[3] ? " · " + c[3] : ""), msg: aberto ? "já tem negócio aberto" : ex ? "marca já existe: só cria o negócio" : "", row: { ex, nome, instagram: c[1], contato: c[2], segmento: c[3], resp: c[4] || curto(S.me.nome) } } },
   salvar: async rows => { for (const r of rows) { let m = r.ex; if (!m) m = await save("impd_marcas", { nome: r.nome, instagram: r.instagram || null, segmento: r.segmento || null, resp: r.resp, whatsapp: r.contato && !r.contato.includes("@") ? r.contato : null, email: r.contato && r.contato.includes("@") ? r.contato : null, origem: "Prospecção ativa" }); await save("impd_negocios", { marca_id: m.id, titulo: "Prospecção", etapa: "prospeccao", resp: r.resp, origem: "Prospecção ativa", ultima_interacao: new Date().toISOString() }) } }
 });
 
@@ -1493,7 +1496,7 @@ function formMarca(m = {}) {
   ${fld("contato_nome", "Pessoa de contato", m.contato_nome)}${fld("whatsapp", "WhatsApp", m.whatsapp, { ph: "21 99999-9999" })}
   ${fld("email", "E-mail", m.email)}${fld("financeiro_contato", "Contato do financeiro (cobrança)", m.financeiro_contato)}
   ${fld("cnpj", "CNPJ", m.cnpj)}${fld("cidade", "Cidade/UF", m.cidade)}
-  ${pick("resp", "Responsável comercial", m.resp || primeiro(S.me.nome), equipeOpts())}${pick("origem", "Origem", m.origem, ORIGENS.slice(0, 5))}
+  ${pick("resp", "Responsável comercial", m.resp || curto(S.me.nome), equipeOpts())}${pick("origem", "Origem", m.origem, ORIGENS.slice(0, 5))}
   ${multi("tags", "Etiquetas", m.tags || [], TAGS_MARCA, { full: 1 })}
   ${fld("obs", "Observações (como gostam de trabalhar, objeções, quem decide…)", m.obs, { type: "textarea", full: 1 })}</div>`;
 }
@@ -1560,7 +1563,7 @@ VR.creators = () => {
   lst.sort((a, b) => ord === "nome" ? a.nome.localeCompare(b.nome) : ord === "seg" ? ((b.ig_seg || 0) + (b.tt_seg || 0)) - ((a.ig_seg || 0) + (a.tt_seg || 0)) : st.get(b.id).fat - st.get(a.id).fat || a.nome.localeCompare(b.nome));
   const cnt = k => S.creators.filter(c => k === "agenciados" ? ["exclusivo", "nao_exclusivo"].includes(c.tipo) && c.status !== "encerrado" : c.tipo === k).length;
   const nichos = uniq(S.creators.flatMap(c => c.nichos || [])).sort();
-  const assessores = uniq(S.creators.map(c => c.assessor && primeiro(c.assessor))).sort();
+  const assessores = uniq(S.creators.map(c => c.assessor && curto(c.assessor))).sort();
   const card = c => { const s = st.get(c.id); const venc = c.tipo === "exclusivo" && c.vencimento ? dias(hoje(), c.vencimento) : null;
     return `<div class="ccard" data-open="creator:${c.id}"><div class="row">${avatar(c.nome)}<div class="ell sp"><b>${esc(c.nome)}</b><div class="xs mut ell">${esc(arroba(c.instagram) || arroba(c.tiktok) || "sem @")}${c.cidade ? " · " + esc(c.cidade) : ""}</div></div></div>
      <div class="row w">${tagSt(TIPOS_CREATOR[c.tipo]?.[0] || c.tipo, TIPOS_CREATOR[c.tipo]?.[1])}${c.tipo === "avaliacao" ? tagSt(ST_AVAL.find(x => x[0] === c.status)?.[1] || c.status, c.status === "aprovado" ? "ok" : c.status === "reprovado" ? "bad" : "") : ""}${(c.nichos || []).slice(0, 2).map(n => tagSt(n)).join("")}${venc != null && venc <= 30 ? tagSt(venc < 0 ? "contrato vencido" : "vence em " + venc + "d", "bad") : ""}</div>
@@ -1571,7 +1574,7 @@ VR.creators = () => {
     const al = S.creators.filter(c => c.tipo === "avaliacao" && (!q || norm(c.nome).includes(q) || norm(c.instagram).includes(q)));
     corpo = `<div class="board">${ST_AVAL.map(([k, l]) => `<div class="bcol"><h5>${l} <span class="n">${al.filter(c => (c.status || "avaliacao") === k || (k === "avaliacao" && !ST_AVAL.some(x => x[0] === c.status))).length}</span></h5>${al.filter(c => (c.status || "avaliacao") === k || (k === "avaliacao" && !ST_AVAL.some(x => x[0] === c.status))).map(c => `<div class="bcard" data-open="creator:${c.id}"><b class="ell">${esc(c.nome)}</b><div class="mt">${c.instagram ? ic("insta") + " " + esc(arroba(c.instagram)) : ""} ${c.ig_seg ? segf(c.ig_seg) : ""}</div><div class="mt">${ST_AVAL.filter(x => x[0] !== k).slice(0, 3).map(x => `<button class="btn s" data-act="avalSet" data-id="${c.id}" data-v="${x[0]}">${x[1]}</button>`).join("")}</div></div>`).join("") || `<div class="mut xs" style="padding:6px">—</div>`}</div>`).join("")}</div>`;
   } else if (vis === "carteira") {
-    const grupos = {}; lst.forEach(c => { const k = c.assessor ? primeiro(c.assessor) : "Sem assessor"; (grupos[k] ||= []).push(c) });
+    const grupos = {}; lst.forEach(c => { const k = c.assessor ? curto(c.assessor) : "Sem assessor"; (grupos[k] ||= []).push(c) });
     corpo = `<div class="tgrid">${Object.entries(grupos).sort((a, b) => b[1].length - a[1].length).map(([k, l]) => `<div class="tsec"><h4><div class="av s">${ini(k)}</div> ${esc(k)}<span class="c">${l.length}</span></h4>
      <div class="xs mut" style="margin-bottom:4px">${l.filter(c => c.tipo === "exclusivo").length} exclusivos${podeValores() ? " · " + brlk(soma(l, c => st.get(c.id).fat)) + " em 12 meses" : ""} · ${l.filter(c => !st.get(c.id).ult || dias(st.get(c.id).ult) > 60).length} parados</div>
      ${l.slice(0, S.f["cart_" + k] ? 999 : 8).map(c => { const s = st.get(c.id); return `<div class="titem" data-open="creator:${c.id}">${avatar(c.nome, "s")}<div class="tx"><b>${esc(c.nome)}</b><span>${esc(arroba(c.instagram))} · ${s.ult ? "último job " + rel(s.ult) : "sem jobs"}</span></div>${c.vencimento && c.tipo === "exclusivo" && dias(hoje(), c.vencimento) <= 30 ? tagSt("contrato", "bad") : ""}</div>` }).join("")}
@@ -1749,7 +1752,7 @@ ACT.jobConcluir = async b => { const j = G("jobs", b.dataset.id); await save("im
 VR.campanhas = () => {
   const f = S.f, aba = f.kaba || "exec", q = norm(f.kq || ""), at = f.kat || "";
   const okC = c => (!q || norm(c.nome).includes(q) || norm(marcaDe(c)?.nome).includes(q) || norm(c.codigo).includes(q) || S.jobs.some(j => j.campanha_id === c.id && norm(creatorDe(j)?.nome || j.creator_nome).includes(q))) && (!at || eu2(c.atendimento, at) || eu2(c.resp, at));
-  const pessoas = uniq(S.campanhas.flatMap(c => [c.atendimento, c.resp]).map(x => x && primeiro(x))).sort();
+  const pessoas = uniq(S.campanhas.flatMap(c => [c.atendimento, c.resp]).map(x => x && curto(x))).sort();
   let corpo = "";
   if (aba === "exec") {
     const cs = S.campanhas.filter(c => (c.status === "ativa" || c.status === "standby") && okC(c)).sort((a, b) => (a.status === "standby") - (b.status === "standby") || String(b.inicio).localeCompare(String(a.inicio)));
@@ -1787,7 +1790,7 @@ ACT.jobsCsv = () => csv("jobs", ["Status", "Data formalização", "Marca", "Segm
 /* ---------- campanha: formulário e gaveta ---------- */
 function formCamp(c = {}) {
   return `<div class="frm">${ent("marca_id", "Marca", "marca", c.marca_id, { req: 1, full: 1 })}${fld("nome", "Nome da campanha", c.nome, { req: 1, full: 1, ph: "Ex.: Shein · Black Friday" })}
-  ${pick("resp", "Comercial (quem vendeu)", c.resp || primeiro(S.me.nome), equipeOpts())}${pick("atendimento", "Atendimento (quem cuida)", c.atendimento, equipeOpts())}
+  ${pick("resp", "Comercial (quem vendeu)", c.resp || curto(S.me.nome), equipeOpts())}${pick("atendimento", "Atendimento (quem cuida)", c.atendimento, equipeOpts())}
   ${fld("inicio", "Início", c.inicio || hoje(), { type: "date" })}${fld("fim", "Fim previsto", c.fim, { type: "date" })}
   ${pick("status", "Status", c.status || "ativa", Object.entries(ST_CAMP).map(([k, v]) => [k, v[0]]))}${pick("prospeccao", "Origem da venda", c.prospeccao, ["Ativa", "Passiva", "Intermediária"])}
   ${fld("briefing", "Briefing (resumo)", c.briefing, { type: "textarea", full: 1, ph: "Produto, mensagem-chave, do's & don'ts, hashtags, @ para marcar, prazo de aprovação…" })}
@@ -1873,7 +1876,7 @@ ACT.jobSalvar = async () => {
     f.valor_creator = f.valor_bruto != null ? Math.round((f.valor_bruto - f.valor_agencia) * 100) / 100 : null;
   }
   const antes = m.jid ? G("jobs", m.jid) : null;
-  if (!m.jid) { f.campanha_id = m.camp.id; f.etapa = "briefing"; f.checklist = { formalizado: { ok: !!f.formalizacao, por: primeiro(S.me.nome), em: hoje() } }; f.nf_status = f.tipo_nf === "Emissão pela agência" ? "a_emitir" : f.tipo_nf === "Emissão pelo influencer" ? "cobrar_creator" : f.tipo_nf === "Sem nota" ? "sem_nota" : null }
+  if (!m.jid) { f.campanha_id = m.camp.id; f.etapa = "briefing"; f.checklist = { formalizado: { ok: !!f.formalizacao, por: curto(S.me.nome), em: hoje() } }; f.nf_status = f.tipo_nf === "Emissão pela agência" ? "a_emitir" : f.tipo_nf === "Emissão pelo influencer" ? "cobrar_creator" : f.tipo_nf === "Sem nota" ? "sem_nota" : null }
   if (f.status === "concluido") f.etapa = "finalizado";
   const j = await save("impd_jobs", f, m.jid);
   if (!m.jid) await log("job", j.id, `Job criado: ${f.creator_nome || ""} · ${f.escopo}${f.valor_bruto ? " · " + brl(f.valor_bruto) : ""}`, "sistema", m.camp.marca_id);
@@ -2056,7 +2059,7 @@ ACT.propPdf = b => {
    <p style="margin-top:28px;color:#777;font-size:11px">IMP Digital · Charitas, Niterói/RJ · Todos os conteúdos passam por aprovação antes da publicação e as métricas são enviadas em até 48h.</p></div>`, "Proposta " + p.numero);
 };
 ACT.propEnviada = async b => { const p = G("propostas", b.dataset.id); await save("impd_propostas", { status: "enviada", enviada_em: hoje() }, p.id); await log("proposta", p.id, "Proposta enviada à marca", "sistema", p.marca_id); const n = G("negocios", p.negocio_id); if (n && ["prospeccao", "contato", "conversa"].includes(n.etapa)) { await save("impd_negocios", { etapa: "proposta", prox_followup: addD(3), ultima_interacao: new Date().toISOString() }, n.id); await log("negocio", n.id, "Etapa → Proposta enviada (" + p.numero + ")", "sistema", n.marca_id) } toast("Enviada ✓ · follow-up marcado para daqui 3 dias"); refreshAll() };
-ACT.propAceita = async b => { const p = G("propostas", b.dataset.id); await save("impd_propostas", { status: "aceita" }, p.id); await log("proposta", p.id, "Proposta aceita 🎉", "sistema", p.marca_id); let n = G("negocios", p.negocio_id); if (!n) { n = await save("impd_negocios", { marca_id: p.marca_id, titulo: p.titulo, etapa: "negociacao", resp: primeiro(S.me.nome), valor: totProp(p).cli }); await save("impd_propostas", { negocio_id: n.id }, p.id) } refreshAll(); fecharNeg(G("negocios", n.id)) };
+ACT.propAceita = async b => { const p = G("propostas", b.dataset.id); await save("impd_propostas", { status: "aceita" }, p.id); await log("proposta", p.id, "Proposta aceita 🎉", "sistema", p.marca_id); let n = G("negocios", p.negocio_id); if (!n) { n = await save("impd_negocios", { marca_id: p.marca_id, titulo: p.titulo, etapa: "negociacao", resp: curto(S.me.nome), valor: totProp(p).cli }); await save("impd_propostas", { negocio_id: n.id }, p.id) } refreshAll(); fecharNeg(G("negocios", n.id)) };
 ACT.propRecusada = async b => { const p = G("propostas", b.dataset.id); await save("impd_propostas", { status: "recusada" }, p.id); await log("proposta", p.id, "Proposta recusada", "sistema", p.marca_id); refreshAll(); const n = G("negocios", p.negocio_id); if (n && !["fechado", "perdido"].includes(n.etapa)) perderNeg(n) };
 ACT.propDup = async b => { const p = G("propostas", b.dataset.id); const { id, numero, created_at, updated_at, status, enviada_em, ...rest } = p; const n = await save("impd_propostas", { ...rest, status: "rascunho", titulo: (p.titulo || "") + " (cópia)" }); toast("Duplicada ✓"); refreshAll(); abrir("proposta", n.id) };
 
@@ -2254,7 +2257,7 @@ OPEN.resp = async id => {
 };
 ACT.respSt = async b => { await save("impd_form_resp", { status: b.dataset.v }, b.dataset.id); closeM(null, true); refreshAll() };
 ACT.respCreator = async b => { const r = G("resps", b.dataset.id), d = r.dados || {}; const c = await save("impd_creators", { nome: d.nome || d.instagram || "Sem nome", instagram: d.instagram ? linkIG(d.instagram) : null, tiktok: d.tiktok ? (String(d.tiktok).startsWith("http") ? d.tiktok : "https://www.tiktok.com/@" + String(d.tiktok).replace(/^@/, "")) : null, ig_seg: segNum(d.ig_seg), tt_seg: segNum(d.tt_seg), nichos: Array.isArray(d.nichos) ? d.nichos : [], cidade: d.cidade || null, whatsapp: d.whatsapp || null, email: d.email || null, tipo: "avaliacao", status: "avaliacao", obs: "Veio do formulário “" + (G("forms", r.form_id)?.titulo || "") + "”" }); await save("impd_form_resp", { status: "convertida" }, r.id); closeM(null, true); toast("Creator criado em avaliação ✓"); refreshAll(); abrir("creator", c.id) };
-ACT.respNeg = async b => { const r = G("resps", b.dataset.id), d = r.dados || {}; const nome = d.marca || d.empresa || d.nome || "Marca sem nome"; let m = S.marcas.find(x => norm(x.nome) === norm(nome)); if (!m) m = await save("impd_marcas", { nome, contato_nome: d.contato_nome || (d.marca ? d.nome : null), whatsapp: d.whatsapp || null, email: d.email || null, origem: "Inbound (marca procurou)" }); const txt = Object.entries(d).filter(([k]) => !["marca", "whatsapp", "email", "contato_nome"].includes(k)).map(([k, v]) => k + ": " + (Array.isArray(v) ? v.join(", ") : v)).join("\n"); const n = await save("impd_negocios", { marca_id: m.id, titulo: d.produto ? String(d.produto).slice(0, 80) : "Briefing recebido", etapa: "conversa", origem: "Inbound (marca procurou)", resp: m.resp || primeiro(S.me.nome), prox_followup: hoje(), obs: txt, ultima_interacao: new Date().toISOString() }); await log("negocio", n.id, "Briefing recebido pelo formulário:\n" + txt, "sistema", m.id); await save("impd_form_resp", { status: "convertida" }, r.id); closeM(null, true); toast("Negócio criado no funil ✓"); refreshAll(); abrir("negocio", n.id) };
+ACT.respNeg = async b => { const r = G("resps", b.dataset.id), d = r.dados || {}; const nome = d.marca || d.empresa || d.nome || "Marca sem nome"; let m = S.marcas.find(x => norm(x.nome) === norm(nome)); if (!m) m = await save("impd_marcas", { nome, contato_nome: d.contato_nome || (d.marca ? d.nome : null), whatsapp: d.whatsapp || null, email: d.email || null, origem: "Inbound (marca procurou)" }); const txt = Object.entries(d).filter(([k]) => !["marca", "whatsapp", "email", "contato_nome"].includes(k)).map(([k, v]) => k + ": " + (Array.isArray(v) ? v.join(", ") : v)).join("\n"); const n = await save("impd_negocios", { marca_id: m.id, titulo: d.produto ? String(d.produto).slice(0, 80) : "Briefing recebido", etapa: "conversa", origem: "Inbound (marca procurou)", resp: m.resp || curto(S.me.nome), prox_followup: hoje(), obs: txt, ultima_interacao: new Date().toISOString() }); await log("negocio", n.id, "Briefing recebido pelo formulário:\n" + txt, "sistema", m.id); await save("impd_form_resp", { status: "convertida" }, r.id); closeM(null, true); toast("Negócio criado no funil ✓"); refreshAll(); abrir("negocio", n.id) };
 
 /* página pública do formulário (sem login) */
 async function renderPublico(slug) {
@@ -2298,7 +2301,7 @@ NOVO.contato = () => { const m = openM({ title: "Novo contato", body: formContat
 OPEN.contato = id => { const c = G("contatos", id); const m = openM({ title: esc(c.nome), body: formContato(c), foot: `${isGestor() ? `<button class="btn dg" data-act="ctApagar" data-id="${id}">Apagar</button>` : ""}<span class="sp"></span>${c.tipo === "Influenciador" ? `<button class="btn" data-act="ctVirarCreator" data-id="${id}">Virar creator</button>` : `<button class="btn" data-act="ctVirarLead" data-id="${id}">Virar lead</button>`}<button class="btn pr" data-act="ctSalvar">Salvar</button>` }); m.tid = id };
 ACT.ctSalvar = async () => { const m = STACK[STACK.length - 1]; if (!exigir(m.box, [["nome", "Escreva o nome"]])) return; const f = readForm(m.box); if (!f.contato) f.contato = f.whatsapp || f.email; await save("impd_contatos", f, m.tid); closeM(m, true); toast("Contato salvo ✓"); refreshAll() };
 ACT.ctApagar = async b => { if (!arm(b)) return; await apagar("impd_contatos", b.dataset.id); closeM(null, true); refreshAll() };
-ACT.ctVirarLead = async b => { const c = G("contatos", b.dataset.id); const nome = c.empresa || c.nome; let m = S.marcas.find(x => norm(x.nome) === norm(nome)); if (!m) m = await save("impd_marcas", { nome, contato_nome: c.empresa ? c.nome : null, email: c.email || (String(c.contato || "").includes("@") ? c.contato : null), whatsapp: c.whatsapp || (/\d{6}/.test(c.contato || "") && !String(c.contato).includes("@") ? c.contato : null), instagram: c.instagram, origem: c.origem ? "Evento: " + c.origem : "Prospecção ativa", resp: primeiro(S.me.nome) }); const n = await save("impd_negocios", { marca_id: m.id, titulo: "Prospecção", etapa: "contato", resp: primeiro(S.me.nome), origem: m.origem, prox_followup: addD(2), ultima_interacao: new Date().toISOString() }); await save("impd_contatos", { convertido_em: new Date().toISOString() }, c.id); STACK.slice().forEach(x => !x.render && closeM(x, true)); toast("Virou lead no funil ✓"); refreshAll(); abrir("negocio", n.id) };
+ACT.ctVirarLead = async b => { const c = G("contatos", b.dataset.id); const nome = c.empresa || c.nome; let m = S.marcas.find(x => norm(x.nome) === norm(nome)); if (!m) m = await save("impd_marcas", { nome, contato_nome: c.empresa ? c.nome : null, email: c.email || (String(c.contato || "").includes("@") ? c.contato : null), whatsapp: c.whatsapp || (/\d{6}/.test(c.contato || "") && !String(c.contato).includes("@") ? c.contato : null), instagram: c.instagram, origem: c.origem ? "Evento: " + c.origem : "Prospecção ativa", resp: curto(S.me.nome) }); const n = await save("impd_negocios", { marca_id: m.id, titulo: "Prospecção", etapa: "contato", resp: curto(S.me.nome), origem: m.origem, prox_followup: addD(2), ultima_interacao: new Date().toISOString() }); await save("impd_contatos", { convertido_em: new Date().toISOString() }, c.id); STACK.slice().forEach(x => !x.render && closeM(x, true)); toast("Virou lead no funil ✓"); refreshAll(); abrir("negocio", n.id) };
 ACT.ctVirarCreator = async b => { const c = G("contatos", b.dataset.id); const cr = await save("impd_creators", { nome: c.nome, instagram: c.instagram ? linkIG(c.instagram) : null, whatsapp: c.whatsapp || (/\d{6}/.test(c.contato || "") ? c.contato : null), email: c.email || (String(c.contato || "").includes("@") ? c.contato : null), tipo: "avaliacao", status: "avaliacao" }); await save("impd_contatos", { convertido_em: new Date().toISOString() }, c.id); STACK.slice().forEach(x => !x.render && closeM(x, true)); toast("Creator criado em avaliação ✓"); refreshAll(); abrir("creator", cr.id) };
 ACT.contatosColar = () => colarImport({ titulo: "Colar contatos", ajuda: "Cole da planilha. Duplicados (mesmo nome + contato) são ignorados.", colunas: ["Nome", "Tipo (Marca/Influenciador)", "Contato (e-mail ou telefone)", "Origem"], exemplo: "Latika Cosméticos\tMarca\tecommerce@latika.com.br\tBeauty Fair",
   parse: c => { if (!c[0]) return { st: "erro", resumo: c.join(" · "), msg: "sem nome" }; const dup = S.contatos.find(x => norm(x.nome) === norm(c[0]) && norm(x.contato) === norm(c[2])); return { st: dup ? "dup" : "ok", resumo: c[0] + " · " + (c[2] || ""), msg: dup ? "já existe" : "", row: { nome: c[0], tipo: /influ/i.test(c[1] || "") ? "Influenciador" : c[1] || "Marca", contato: c[2] || null, email: (c[2] || "").includes("@") ? c[2] : null, whatsapp: /\d{6}/.test(c[2] || "") && !(c[2] || "").includes("@") ? c[2] : null, origem: c[3] || null } } },
